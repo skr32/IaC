@@ -26,6 +26,9 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: './docker/caddy2'
     permissions:
       contents: read
       packages: write
