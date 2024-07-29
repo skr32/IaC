@@ -1,0 +1,28 @@
+- name: Setup Debian machine
+  hosts: debian
+  become: yes
+  gather_facts: yes
+  become: true
+  //different username
+      
+#  become_method: su
+  become_user: root
+
+  tasks:
+
+    - name: Fetch the SSH key from GitHub
+      set_fact:
+        ssh_key: "{{ lookup('url', 'https://github.com/skr32.keys') }}"
+      
+    - name: Deploy SSH Key to ansible user
+      authorized_key:
+        user: ansible
+        key: "{{ ssh_key }}"
+        state: present
+    
+    - name: Update Debian packages  
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+

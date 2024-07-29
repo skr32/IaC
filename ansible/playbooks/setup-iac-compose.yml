@@ -1,0 +1,26 @@
+- name: Setup Debian machine
+  hosts: debian
+  become: yes
+
+  tasks:
+    - name: Update Debian packages  
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Clone the repository if not present
+      git:
+        repo: 'https://github.com/skr32/IaC.git'
+        dest: /opt/IaC
+        update: no
+
+    - name: Pull the latest changes
+      git:
+        repo: 'https://github.com/skr32/IaC.git'
+        dest: /opt/IaC
+        force: yes
+
+    - name: Deploy Docker Compose
+      command: docker compose pull && docker compose up -d
+      args:
+        chdir: /opt/IaC

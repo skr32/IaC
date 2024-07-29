@@ -1,0 +1,9 @@
+---
+- name: Setup Docker host
+  hosts: docker
+  become: yes
+
+  tasks:
+    - name: Docker setup
+      block:
+        - import_role: name=docker

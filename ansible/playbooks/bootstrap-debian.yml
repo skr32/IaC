@@ -1,0 +1,62 @@
+# ansible playbook that uses custom username and passoword for initial config
+# test connection: ansible all -i hosts.yml -m ping --extra-vars "ansible_user=user" -k
+# and run the playbook: ansible-playbook -i hosts.yml playbooks/bootstrap-debian.yml --limit testvm -k --ask-become-pass --check
+
+
+  - name: Setup Debian machine
+  hosts: debian_machines
+  vars:
+    ansible_user: user
+  become: yes
+  gather_facts: yes
+  become: true
+  become_user: root
+
+  tasks:
+    
+    - name: Create ansible group
+      group:
+        name: ansible
+        state: present
+
+    - name: Create ansible user
+      user:
+        name: ansible
+        shell: /bin/bash
+        groups: ansible,adm,cdrom,sudo,dip,plugdev
+
+    - name: Add ansible user to the sudoers
+      copy:
+        dest: "/etc/sudoers.d/ansible"
+        content: "ansible  ALL=(ALL)  NOPASSWD: ALL"
+
+    - name: Fetch the SSH key from GitHub
+      set_fact:
+        ssh_key: "{{ lookup('url', 'https://github.com/skr32.keys') }}"
+
+    - name: Deploy SSH Key to ansible user
+      authorized_key:
+        user: ansible
+        key: "{{ ssh_key }}"
+        state: present
+        
+    - name: Disable root login
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin'
+        line: 'PermitRootLogin no'
+        state: present
+        backup: yes
+
+    - name: Disable password authentication
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+        state: present
+        backup: yes
+
+    - name: Restart SSH service to apply changes
+      service:
+        name: ssh
+        state: restarted
