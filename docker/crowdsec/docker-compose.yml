@@ -1,22 +1,77 @@
-      services:
-        crowdsec:
-          image: docker.io/crowdsecurity/crowdsec:latest
-          container_name: crowdsec
-          environment:
-            - GID=1000
-            - COLLECTIONS=crowdsecurity/caddy crowdsecurity/http-cve crowdsecurity/whitelist-good-actors
-            - CUSTOM_HOSTNAME=myserver
-          volumes:
-            - /opt/appdata/crowdsec/config:/etc/crowdsec:rw
-            - /opt/appdata/crowdsec/data:/var/lib/crowdsec/data:rw
-            - /opt/appdata/swag/log/nginx:/var/log/swag:ro
-            - /var/log:/var/log/host:ro      
-          networks:
-            - crowdsec
-          restart: unless-stopped
-          security_opt:
-            - no-new-privileges=true
+version: '3'
+services:
+ #the application itself : static html served by apache2.
+ #the html can be found in ./app/
+ app:
+   image: httpd:alpine
+   restart: always
+   volumes:
+     - ./app/:/usr/local/apache2/htdocs/
+   networks:
+     crowdsec_test:
+       ipv4_address: 172.20.0.2
+       
+ #the reverse proxy that will serve the application
+ #you can see nginx's config in ./reverse-proxy/nginx.conf
+ reverse-proxy:
+   image: nginx:alpine
+   restart: always
+   ports:
+     - 8000:80
+   depends_on:
+     - 'app'
+   volumes:
+     - ./reverse-proxy/nginx.conf:/etc/nginx/nginx.conf
+     - logs:/var/log/nginx
+   networks:
+     crowdsec_test:
+       ipv4_address: 172.20.0.3
+ #crowdsec : it will be fed nginx's logs
+ #and later we're going to plug a firewall bouncer to it
+ crowdsec:
+   image: crowdsecurity/crowdsec:latest
+   restart: always
+   environment:
+     #this is the list of collections we want to install    
+     #https://hub.crowdsec.net/author/crowdsecurity/collections/nginx
+     COLLECTIONS: "crowdsecurity/nginx"
+     GID: "${GID-1000}"
+   depends_on:
+     - 'reverse-proxy'
+   volumes: 
+     - ./crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml
+     - logs:/var/log/nginx
+     - crowdsec-db:/var/lib/crowdsec/data/
+     - crowdsec-config:/etc/crowdsec/
+   networks:
+     crowdsec_test:
+       ipv4_address: 172.20.0.4
+ #metabase, because security is cool, but dashboards are cooler
+ dashboard:
+  #we're using a custom Dockerfile so that metabase pops with pre-configured dashboards
+  build: ./crowdsec/dashboard
+  restart: always
+  ports:
+    - 3000:3000
+  environment:
+    MB_DB_FILE: /data/metabase.db
+    MGID: "${GID-1000}"
+  depends_on:
+    - 'crowdsec'
+  volumes:
+    - crowdsec-db:/metabase-data/
+  networks:
+    crowdsec_test:
+      ipv4_address: 172.20.0.5
 
-      networks:
-        crowdsec:
-          external: true
+volumes:
+  logs:
+  crowdsec-db:
+  crowdsec-config:
+  
+networks:
+  crowdsec_test:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/24
