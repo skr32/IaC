@@ -4,5 +4,11 @@ services:
     hostname: cloudflare-tunnel
     restart: unless-stopped
     command: tunnel run
+    networks:
+      - caddy_wan
     environment:
       - "TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}"
+
+networks:
+  caddy_wan:
+  external: true
