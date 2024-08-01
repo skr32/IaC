@@ -16,7 +16,7 @@ services:
       - caddy_data:/data
     restart: unless-stopped
     labels:
-      caddy_0: ${TEST}
+      caddy_0: ${WILDCARD_DOMAIN}
 #"*.bagoize.com"
       caddy_0.tls.dns: cloudflare ${CLOUDFLARE_API_TOKEN}
       caddy_0.tls.resolvers: 1.1.1.1
